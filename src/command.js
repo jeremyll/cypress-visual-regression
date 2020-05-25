@@ -23,7 +23,7 @@ function compareSnapshotCommand(defaultScreenshotOptions) {
 
       // take snapshot
       const objToOperateOn = subject ? cy.get(subject) : cy;
-      const fileName = `${name}-${title}`;
+      const fileName = `${name}`;
       if (Cypress.env('type') === 'base') {
         const identifier = `${fileName}-${new Date().getTime()}`;
         objToOperateOn
@@ -45,6 +45,7 @@ function compareSnapshotCommand(defaultScreenshotOptions) {
           specDirectory: Cypress.spec.name,
           baseDir: SNAPSHOT_BASE_DIRECTORY,
           diffDir: SNAPSHOT_DIFF_DIRECTORY,
+          errorThreshold: errorThreshold
         };
         cy.task('compareSnapshotsPlugin', options).then((results) => {
           if (results.error) {

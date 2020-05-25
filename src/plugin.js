@@ -7,6 +7,7 @@ const sanitize = require('sanitize-filename');
 
 const { adjustCanvas, createFolder, parseImage } = require('./utils');
 
+let SNAPSHOT_ACTUAL_DIRECTORY;
 let SNAPSHOT_BASE_DIRECTORY;
 let SNAPSHOT_DIFF_DIRECTORY;
 let CYPRESS_SCREENSHOT_DIR;
@@ -21,6 +22,9 @@ function setupSnapshotPaths(args) {
   SNAPSHOT_BASE_DIRECTORY =
     args.baseDir || path.join(process.cwd(), 'cypress', 'snapshots', 'base');
 
+  SNAPSHOT_ACTUAL_DIRECTORY =
+    path.join(process.cwd(), 'cypress', 'snapshots', 'actual');
+
   SNAPSHOT_DIFF_DIRECTORY =
     args.diffDir || path.join(process.cwd(), 'cypress', 'snapshots', 'diff');
 }
@@ -29,7 +33,7 @@ function visualRegressionCopy(args) {
   setupSnapshotPaths(args);
   const baseDir = path.join(SNAPSHOT_BASE_DIRECTORY, args.specName);
   const from = path.join(
-    CYPRESS_SCREENSHOT_DIR,
+    SNAPSHOT_ACTUAL_DIRECTORY,
     args.specName,
     `${args.from}.png`
   );
@@ -48,58 +52,71 @@ async function compareSnapshotsPlugin(args) {
 
   const options = {
     actualImage: path.join(
-      CYPRESS_SCREENSHOT_DIR,
+      SNAPSHOT_ACTUAL_DIRECTORY,
       args.specDirectory,
-      `${fileName}-actual.png`
+      `${fileName}.png`
     ),
     expectedImage: path.join(
       SNAPSHOT_BASE_DIRECTORY,
       args.specDirectory,
-      `${fileName}-base.png`
+      `${fileName}.png`
     ),
     diffImage: path.join(
       SNAPSHOT_DIFF_DIRECTORY,
       args.specDirectory,
-      `${fileName}-diff.png`
+      `${fileName}.png`
     ),
   };
 
   let mismatchedPixels = 0;
   let percentage = 0;
   try {
-    await createFolder(SNAPSHOT_DIFF_DIRECTORY, args.failSilently);
+    const specActualFolder = path.join(SNAPSHOT_ACTUAL_DIRECTORY, args.specDirectory);
+    await createFolder(specActualFolder, args.failSilently);
     const specFolder = path.join(SNAPSHOT_DIFF_DIRECTORY, args.specDirectory);
     await createFolder(specFolder, args.failSilently);
-    const imgExpected = await parseImage(options.expectedImage);
+    const specBaseFolder = path.join(SNAPSHOT_BASE_DIRECTORY, args.specDirectory);
+    await createFolder(specBaseFolder, args.failSilently);
     const imgActual = await parseImage(options.actualImage);
-    const diff = new PNG({
-      width: Math.max(imgActual.width, imgExpected.width),
-      height: Math.max(imgActual.height, imgExpected.height),
-    });
 
-    const imgActualFullCanvas = adjustCanvas(
-      imgActual,
-      diff.width,
-      diff.height
-    );
-    const imgExpectedFullCanvas = adjustCanvas(
-      imgExpected,
-      diff.width,
-      diff.height
-    );
+    if (!fs.existsSync(options.expectedImage)) {
+        // Copy actual to diff if we don't have an expected image
+        fs.createReadStream(options.actualImage).pipe(fs.createWriteStream(options.diffImage));
+    } else {
+        const imgActual = await parseImage(options.actualImage);
+        const diff = new PNG({
+          width: Math.max(imgActual.width, imgExpected.width),
+          height: Math.max(imgActual.height, imgExpected.height),
+        });
 
-    mismatchedPixels = pixelmatch(
-      imgActualFullCanvas.data,
-      imgExpectedFullCanvas.data,
-      diff.data,
-      diff.width,
-      diff.height,
-      { threshold: 0.1 }
-    );
-    percentage = (mismatchedPixels / diff.width / diff.height) ** 0.5;
+        const imgActualFullCanvas = adjustCanvas(
+          imgActual,
+          diff.width,
+          diff.height
+        );
+        const imgExpectedFullCanvas = adjustCanvas(
+          imgExpected,
+          diff.width,
+          diff.height
+        );
 
-    diff.pack().pipe(fs.createWriteStream(options.diffImage));
+        mismatchedPixels = pixelmatch(
+          imgActualFullCanvas.data,
+          imgExpectedFullCanvas.data,
+          diff.data,
+          diff.width,
+          diff.height,
+          { threshold: 0.1 }
+        );
+        percentage = (mismatchedPixels / diff.width / diff.height) ** 0.5;
+
+        // Write diff file only if difference
+        if ( percentage > args.errorThreshold ) {
+            diff.pack().pipe(fs.createWriteStream(options.diffImage));
+        }
+    }
   } catch (error) {
+    console.log(error.message)
     return { error };
   }
   return {
