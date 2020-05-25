@@ -56,19 +56,19 @@ async function compareSnapshotsPlugin(args) {
       SNAPSHOT_DIRECTORY,
       'actual',
       args.specDirectory,
-      `${args.fileName}-actual.png`
+      `${args.fileName}.png`
     ),
     expectedImage: path.join(
       SNAPSHOT_DIRECTORY,
       'base',
       args.specDirectory,
-      `${args.fileName}-base.png`
+      `${args.fileName}.png`
     ),
     diffImage: path.join(
       SNAPSHOT_DIRECTORY,
       'diff',
       args.specDirectory,
-      `${args.fileName}-diff.png`
+      `${args.fileName}.png`
     ),
   };
 
