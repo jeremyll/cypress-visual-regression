@@ -13,16 +13,12 @@ function compareSnapshotCommand(defaultScreenshotOptions) {
         errorThreshold = params.errorThreshold || 0.0;
         screenshotOptions = Object.assign({}, defaultScreenshotOptions, params);
       }
-      let title = 'actual';
-      if (Cypress.env('type') === 'base') {
-        title = 'base';
-      }
 
       // take snapshot
       if (subject) {
-        cy.get(subject).screenshot(`${name}-${title}`, screenshotOptions);
+        cy.get(subject).screenshot(`${name}`, screenshotOptions);
       } else {
-        cy.screenshot(`${name}-${title}`, screenshotOptions);
+        cy.screenshot(`${name}`, screenshotOptions);
       }
 
       // run visual tests
