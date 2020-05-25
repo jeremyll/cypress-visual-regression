@@ -79,24 +79,33 @@ async function compareSnapshotsPlugin(args) {
     await createFolder(diffFolder, args.failSilently);
     const specFolder = path.join(diffFolder, args.specDirectory);
     await createFolder(specFolder, args.failSilently);
-    const imgExpected = await parseImage(options.expectedImage);
+    const baseFolder = path.join(SNAPSHOT_DIRECTORY, 'base');
+    await createFolder(baseFolder, args.failSilently);
+    const baseSpecFolder = path.join(baseFolder, args.specDirectory);
+    await createFolder(baseSpecFolder, args.failSilently);
     const imgActual = await parseImage(options.actualImage);
-    const diff = new PNG({
-      width: imgActual.width,
-      height: imgActual.height,
-    });
+    if (!fs.existsSync(options.expectedImage)) {
+        // Copy actual to diff if we don't have an expected image
+        fs.createReadStream(options.actualImage).pipe(fs.createWriteStream(options.diffImage));
+    } else {
+        const imgExpected = await parseImage(options.expectedImage);
+        const diff = new PNG({
+          width: imgActual.width,
+          height: imgActual.height,
+        });
 
-    mismatchedPixels = pixelmatch(
-      imgActual.data,
-      imgExpected.data,
-      diff.data,
-      imgActual.width,
-      imgActual.height,
-      { threshold: 0.1 }
-    );
-    percentage = (mismatchedPixels / imgActual.width / imgActual.height) ** 0.5;
+        mismatchedPixels = pixelmatch(
+          imgActual.data,
+          imgExpected.data,
+          diff.data,
+          imgActual.width,
+          imgActual.height,
+          { threshold: 0.1 }
+        );
+        percentage = (mismatchedPixels / imgActual.width / imgActual.height) ** 0.5;
 
-    diff.pack().pipe(fs.createWriteStream(options.diffImage));
+        diff.pack().pipe(fs.createWriteStream(options.diffImage));
+    }
   } catch (error) {
     console.log(error); // eslint-disable-line no-console
   }
